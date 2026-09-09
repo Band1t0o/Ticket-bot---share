@@ -1,0 +1,64 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+.pytest_cache/
+.ruff_cache/
+
+# Environment
+.env.local
+.env
+
+# Credentials written by the app itself — the Discord webhook URL is a bearer
+# token, and this repo is public. Ignored as a directory so anything added here
+# later is covered without anyone having to remember.
+/.secrets/
+
+# Data (optional - comment out if you want to commit scraped data)
+# data/
+# But always ignore the offer count file
+data/latest_offer_count.txt
+
+# Debug screenshots
+debug_*.png
+
+# Snapshots and console logs written by the Chrome/Playwright MCP servers when
+# the app is driven through a browser by hand. Working notes, not findings.
+.playwright-mcp/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Sweep results and price history under data/ ARE committed - that is how
+# cloud runs get their findings back to you. A blanket `data/` rule used to
+# sit here, which made the workflow's `git add data/...` a silent no-op
+# (the trailing `|| true` swallowed the "paths are ignored" error), so every
+# scheduled run threw its results away.
+data/**/*.png
+data/latest_offer_count.txt
+data/20*-*-*/
+
+# Local observations, not findings. `source_checks.json` records when each site
+# was last asked for a price from *this* machine; committing it would put a
+# laptop's Tuesday afternoon into a cloud sweep's history and tell you nothing.
+data/source_checks.json
+
+# A watch run's working directory - legs, searches, status - at six runs a day.
+# The distilled `observations.jsonl` beside it is the finding and IS committed;
+# the legs behind one observation are worth having until it is computed and not
+# after, and committing them would add ~3,600 leg rows a day to the history.
+data/watch/*/20*-*-*T*Z/

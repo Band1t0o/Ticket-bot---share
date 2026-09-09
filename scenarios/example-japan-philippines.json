@@ -1,0 +1,62 @@
+{
+  "id": "example-japan-philippines",
+  "name": "Example: Europe → Japan → Philippines → Europe",
+  "origins": [
+    "VIE"
+  ],
+  "stops": [
+    {
+      "label": "Japan",
+      "airports": [
+        "HND",
+        "KIX"
+      ],
+      "stay_days": [
+        12,
+        16
+      ],
+      "overland": true,
+      "arrive_via": "HND",
+      "depart_via": "KIX"
+    },
+    {
+      "label": "Philippines",
+      "airports": [
+        "CEB"
+      ],
+      "stay_days": [
+        11,
+        14
+      ],
+      "overland": false,
+      "arrive_via": null,
+      "depart_via": null
+    }
+  ],
+  "window_start": "2027-01-08",
+  "window_end": "2027-02-12",
+  "return_to": null,
+  "one_way": false,
+  "focus_start": null,
+  "focus_end": null,
+  "return_focus_start": null,
+  "return_focus_end": null,
+  "total_days": null,
+  "adults": 1,
+  "depth": "quick",
+  "currency": "EUR",
+  "alert_threshold": null,
+  "bag_estimate": 60,
+  "enabled": false,
+  "notes": "An example, so the app has something to open. It flies out of Vienna, lands in Tokyo, crosses Japan overland and flies onward from Osaka, spends a couple of weeks in Cebu and comes home. Nothing here has been searched: change it to your own airports and dates, or delete it and start a new trip. Ticking it into the nightly sweep is the schedule dialog on the Map it out step.",
+  "preferred_origins": [],
+  "notify": [
+    "cheapest"
+  ],
+  "preferences": [],
+  "leg_watches": [],
+  "probe_extra": {},
+  "probe_both_orders": false,
+  "sweep_narrowing": false,
+  "notify_quiet": true
+}

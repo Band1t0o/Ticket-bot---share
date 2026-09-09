@@ -1,0 +1,84 @@
+name: probe
+
+# Measures how much prices actually move, so the sweep cadence is set from data
+# rather than intuition. A few fixed routes, ~2 min per run.
+#
+# **Off by default, and it has no routes.** `src/probe.py` ships with an empty
+# `PROBE_ROUTES`, so a run started by hand from here will say there is nothing
+# to sample and stop. Fill that list in with routes of your own first: routes
+# are fixed rather than read from a trip, so that observations stay comparable
+# over the whole collection period, and someone else's routes would measure
+# someone else's trip.
+#
+# To schedule it, put back:
+#
+#   schedule:
+#     - cron: '0 */2 * * *'
+#
+# Every two hours is what produced the findings this exists for. It is also
+# ~720 Actions minutes a month, which is free on a public repo and more than a
+# third of the allowance on a private one - so add it deliberately, and know
+# that *Pause all scheduled runs* in the app's gear will then stop it along with
+# the sweeps.
+#
+#   git pull && python -m src.cli probe-report
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: probe
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-pw-${{ hashFiles('requirements.txt') }}
+
+      - run: python -m playwright install --with-deps chromium
+
+      - run: python -m src.cli probe
+
+      - name: Commit observations
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add data/probe/
+          if git diff --staged --quiet; then
+            echo "No new observations"
+            exit 0
+          fi
+          git commit -m "chore(probe): observation $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+
+          # scrape.yml and watch.yml push to this branch too, on their own
+          # concurrency groups, so nothing serialises the three. This used to be
+          # one pull-rebase and one push: a push rejected by a sweep landing in
+          # between lost the observation outright, and this workflow is the one
+          # that runs most often. The same three-attempt loop the other two use.
+          for attempt in 1 2 3; do
+            if git push; then
+              exit 0
+            fi
+            echo "push rejected (attempt $attempt), rebasing onto origin"
+            git pull --rebase --autostash
+          done
+          echo "::error::could not push probe observations after 3 attempts"
+          exit 1

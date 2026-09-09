@@ -1,0 +1,344 @@
+name: sweep
+
+# One broad sweep of the whole window per day, and two cheap re-prices of what
+# the trip has been narrowed to.
+#
+# The three slots answer two different questions and must not be confused. 02:00
+# prices the window: "is there a better week out there", the question a narrowing
+# was decided against and the one that goes stale fastest. 13:00 and 20:00 price
+# only the narrowing: "is the trip I have chosen getting cheaper".
+#
+# Until 24 Aug there was one question. `plan_searches` read the narrowing off the
+# trip file, so saving one silently narrowed every slot - the 02:00 run included.
+# Measured that morning on japan-philippines: two nightly runs of 48 searches
+# against a window of 85, both recorded as broad sweeps because a status only
+# ever wrote down the focus and this trip was narrowed by a return window.
+#
+# The repo is public, so Actions minutes are free and depth is not rationed by
+# budget. What constrains it is pelikan.cz, and the shape of that constraint is
+# now measured rather than assumed.
+#
+# pelikan.cz answers about 120 searches per runner and then stops answering at
+# all. Measured four ways on 20 Aug, and the first three readings of it were
+# wrong:
+#
+#   3 runners, no recycling:      120 answered *each* (360 total)
+#   1 runner,  no recycling:      120 answered
+#   1 runner,  recycle every 40:  120 answered
+#   5 runners, 105 each:          483 answered - coverage 1.0
+#
+# Replacing the whole browser changes nothing, so it is not a cookie and not a
+# session; what is constant within a runner and differs between runners is the
+# address. The cliff is hard rather than a slowdown - a steady ten seconds a
+# search right through [120/483], then half an hour of silence.
+#
+# So every shard must stay under ~120 searches. That is no longer a number kept
+# here: `scripts/plan_sweep.py` plans each trip at the depth this run will use
+# and asks `planner.shards_for` how many runners it needs, so the matrix carries
+# a count per trip. It gives back 5 for the 483-search shape that has finished
+# whole every night since 20 Aug, and 1 for the 66-search shape that pinning the
+# Japan crossing produced - which the old fixed 5 would have split 13 apiece.
+#
+# Do not trust the old "350 searches, zero timeouts" note. That run was cancelled
+# at the 90-minute ceiling and ran the code that logged a timed-out search as an
+# empty route, so it could not have reported anything but zero.
+#
+# Timing comes from the probe, detrended against each route-day median:
+# 01:00-03:00 UTC runs ~2.2% below the day median and 18:00-22:00 ~0.6% above,
+# so a true evening slot would systematically sample the day high. 02:00 lands
+# results before you wake; 13:00 (~15:00 local) is near-median and actionable
+# while you are awake to act on it.
+on:
+  schedule:
+    - cron: '0 2 * * *'
+    - cron: '0 13 * * *'
+    - cron: '0 20 * * *'
+  workflow_dispatch:
+    inputs:
+      scenario:
+        description: 'Scenario id (default: every enabled scenario)'
+        required: false
+      mode:
+        description: 'sweep (the whole window) | final (only the narrowing) | explore (a probe)'
+        required: false
+      depth:
+        description: 'quick | standard | deep (default: deep)'
+        required: false
+      shards:
+        description: 'Force a runner count. Leave blank; it is sized per trip.'
+        required: false
+
+permissions:
+  contents: write
+
+# One lane per dispatched trip, and one shared lane for the schedule.
+#
+# It was a single `sweep` group, which is not the queue it looks like: GitHub
+# keeps at most *one* pending run per group and cancels the previously pending
+# one when the next queues. Five dispatches inside five minutes on 22 Aug got
+# one run and two cancellations - runs 32577251585 and 32577483180, both with
+# zero jobs, which is what a pending-cancel looks like. The probe was blamed and
+# could not have been responsible; it has its own group.
+#
+# Two trips at once is safe against the site. The throttle is per runner address
+# - that is the whole finding at the top of this file - and a deep sweep already
+# fans out to five runners in parallel, so this is load the sweep already makes.
+#
+# The schedule keeps sharing one lane so the 02:00 slot still cannot overlap the
+# 13:00 one if it overruns.
+concurrency:
+  group: sweep-${{ inputs.scenario || 'schedule' }}
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      scenarios: ${{ steps.pick.outputs.scenarios }}
+      jobs: ${{ steps.pick.outputs.jobs }}
+      depth: ${{ steps.pick.outputs.depth }}
+      mode: ${{ steps.pick.outputs.mode }}
+      reason: ${{ steps.pick.outputs.reason }}
+      unreadable: ${{ steps.pick.outputs.unreadable }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - id: pick
+        env:
+          INPUT_SCENARIO: ${{ inputs.scenario }}
+          INPUT_MODE: ${{ inputs.mode }}
+          INPUT_DEPTH: ${{ inputs.depth }}
+          INPUT_SHARDS: ${{ inputs.shards }}
+        run: |
+          set -euo pipefail
+          DEPTH="${INPUT_DEPTH:-deep}"
+          echo "depth=$DEPTH" >> "$GITHUB_OUTPUT"
+          # The slot decides the mode; a dispatch may override it. Both afternoon
+          # crons re-price the narrowing, and only 02:00 prices the window.
+          MODE="${INPUT_MODE:-sweep}"
+          # The one expression left inside a run: block in this repo, and it is
+          # deliberate: github.event.schedule is GitHub's own cron string for the
+          # slot that fired - not a value anyone can type - and it is matched
+          # against the literals below, so reading it through env would put the
+          # two crons two lines further apart than the comparison they agree with.
+          #
+          # Nothing in a run: block may write an expression in prose. GitHub
+          # substitutes them textually before bash is involved, comments
+          # included, so an empty one is a syntax error in the workflow rather
+          # than a remark - which is how this very comment failed the file.
+          case "${{ github.event.schedule }}" in
+            "0 13 * * *"|"0 20 * * *") MODE="final" ;;
+          esac
+          echo "mode=$MODE" >> "$GITHUB_OUTPUT"
+          FINAL=""
+          if [ "$MODE" = "final" ]; then
+            FINAL="--final"
+          fi
+          # --depth is the depth the sweep will run at, not the one on the file.
+          # Sizing a trip saved as `quick` and dispatched as `deep` from the file
+          # would hand a seven-times bigger plan to one runner. --final sizes it
+          # from the narrowed plan for the same reason, in the other direction.
+          # --mode as well as --final, because a probe is dispatched by hand
+          # rather than by a slot and is a fraction of the size: grand-tour is
+          # 660 searches swept and 36 probed, and sizing the probe from the
+          # sweep would deal 36 searches across seven runners.
+          python scripts/plan_sweep.py --depth "$DEPTH" --shards "${INPUT_SHARDS:-0}" --only "${INPUT_SCENARIO:-}" --mode "$MODE" $FINAL >> "$GITHUB_OUTPUT"
+          cat "$GITHUB_OUTPUT"
+      # A trip the branch cannot read is skipped rather than fatal - one bad
+      # file used to take every other trip's night with it - so the run stays
+      # green and this is the only place that would ever say so. Silence here
+      # is how a trip stops being swept and nobody finds out for weeks.
+      - name: Name the trips that could not be read
+        if: steps.pick.outputs.unreadable != '[]'
+        # Through `env` rather than interpolated, like every other value in this
+        # file: an expression is pasted in as text before bash sees the line.
+        env:
+          UNREADABLE: ${{ steps.pick.outputs.unreadable }}
+        run: |
+          echo "::warning::Not swept, because this branch's code cannot read them: $UNREADABLE"
+
+  # A dispatch that named a trip and planned nothing for it is a failure, and
+  # has to look like one. Three runs on 22 Aug asked for `tokyo-round-trip`,
+  # planned nothing because `choose` filtered it on `enabled` before it read the
+  # name, skipped both jobs below, and reported success in twelve seconds each.
+  #
+  # A separate job rather than `exit 1` inside the plan step: a failed `plan`
+  # leaves `needs.plan.outputs.*` empty, and `merge` runs `if: always()` and
+  # would hand `fromJson('')` an empty string. This way `plan` stays green, the
+  # two jobs below skip exactly as they do now, and the *run* is red.
+  dispatched-nothing:
+    needs: plan
+    if: inputs.scenario != '' && needs.plan.outputs.jobs == '[]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Say why this dispatch swept nothing
+        # Through `env`, not interpolated into the script. An expression is
+        # pasted in as text before bash ever sees the line, so a value
+        # carrying a quote or a `$(...)` is running in this job rather than
+        # being printed by it. `reason` is the worst of the two: it is a
+        # sentence assembled by plan_sweep.py. Only a dispatcher with write
+        # access can reach either, which is why this is tidiness rather than a
+        # hole - and the plan step below has always done it this way.
+        env:
+          SCENARIO: ${{ inputs.scenario }}
+          REASON: ${{ needs.plan.outputs.reason }}
+        run: |
+          echo "::error::Dispatched '$SCENARIO' but planned no searches. $REASON"
+          exit 1
+
+  sweep:
+    needs: plan
+    if: needs.plan.outputs.jobs != '[]'
+    strategy:
+      # One throttled shard must not bin the others. A sweep missing part of its
+      # date grid is worth committing and says so through coverage; nothing at
+      # all is what the thirteen cancelled nights produced.
+      fail-fast: false
+      # One entry per runner, each carrying the count it is a share of. A cross
+      # product of trips and shard indices cannot give one trip five runners and
+      # another one, which is exactly what sizing per trip needs.
+      matrix:
+        include: ${{ fromJson(needs.plan.outputs.jobs) }}
+    runs-on: ubuntu-latest
+    # A ceiling, never the budget. The budget is --max-minutes below, which the
+    # sweep enforces on itself so it always reaches the upload step.
+    #
+    # This was the budget once, set from an estimate wrong by half, and thirteen
+    # consecutive nightly runs -- 8 to 20 August -- swept cleanly for 90 minutes,
+    # were cancelled, and committed nothing. Neither the runs nor the data ever
+    # said so; gh run list did. It now sits well above the budget.
+    timeout-minutes: 165
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-pw-${{ hashFiles('requirements.txt') }}
+
+      - run: python -m playwright install --with-deps chromium
+
+      - name: Report the planned cost before spending it
+        env:
+          SCENARIO: ${{ matrix.scenario }}
+          MODE: ${{ needs.plan.outputs.mode }}
+          DEPTH: ${{ needs.plan.outputs.depth }}
+          SHARD: ${{ matrix.shard }}/${{ matrix.shard_count }}
+        run: |
+          python -m src.cli sweep --scenario "$SCENARIO" --mode "$MODE" --depth "$DEPTH" --shard "$SHARD" --dry-run || true
+
+      - name: Sweep this shard
+        env:
+          # A ceiling, not an expectation: a shard is capped near 105 searches
+          # by the sizing above, which takes ~20 min. Generous so a slow night
+          # still finishes, low enough that a stuck shard gives up rather than
+          # running into timeout-minutes.
+          SWEEP_BUDGET_MIN: 140
+          SCENARIO: ${{ matrix.scenario }}
+          MODE: ${{ needs.plan.outputs.mode }}
+          DEPTH: ${{ needs.plan.outputs.depth }}
+          SHARD: ${{ matrix.shard }}/${{ matrix.shard_count }}
+        run: |
+          set -euo pipefail
+          python -m src.cli sweep --scenario "$SCENARIO" --mode "$MODE" --depth "$DEPTH" --shard "$SHARD" --data-dir shard-out --max-minutes "$SWEEP_BUDGET_MIN"
+
+      - name: Hand the shard to the merge
+        # Always: legs are appended as they are found, so there is nearly always
+        # something real on disk even when the step above failed, and an hour of
+        # measurements against prices that cannot be re-observed is worth keeping
+        # whatever killed the run.
+        #
+        # shard-out/, not data/: uploading data/sweeps/<id>/ handed the merge the
+        # whole committed history -- 24 directories, seven of them sweeps from a
+        # fortnight earlier -- and it refused to merge them, which is the only
+        # reason the first sharded run committed nothing.
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sweep-${{ matrix.scenario }}-shard-${{ matrix.shard }}
+          path: shard-out/sweeps/${{ matrix.scenario }}/
+          if-no-files-found: warn
+          retention-days: 3
+
+  merge:
+    needs: [plan, sweep]
+    # Always, for the same reason: two shards out of three is a sweep with holes
+    # in its date grid, which coverage reports honestly. Losing them all is
+    # another blank night.
+    #
+    # `always()` covers a failed *sweep*, never a failed *plan*. A plan that
+    # died leaves every one of its outputs empty, and `'' != '[]'` is true - so
+    # this job used to go on to `fromJson('')` and fail evaluating its own
+    # strategy. On 2 Sep that turned one traceback into three errors, two of
+    # them filed under `sweep`, which had never run at all.
+    if: always() && needs.plan.result == 'success' && needs.plan.outputs.scenarios != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      # Serial, because every trip commits to the same branch.
+      max-parallel: 1
+      matrix:
+        scenario: ${{ fromJson(needs.plan.outputs.scenarios) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install -r requirements.txt
+
+      - name: Collect the shards
+        uses: actions/download-artifact@v4
+        with:
+          pattern: sweep-${{ matrix.scenario }}-shard-*
+          path: shards
+
+      - name: Stitch them into one sweep and report
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          SCENARIO: ${{ matrix.scenario }}
+        run: |
+          set -euo pipefail
+          python -m src.cli merge-shards --scenario "$SCENARIO" --from shards
+
+      - name: Commit results
+        if: always()
+        env:
+          SCENARIO: ${{ matrix.scenario }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          # No || true on git add: a persistence failure must be loud. A blanket
+          # data/ ignore rule silently discarded every result for months
+          # precisely because that error was being swallowed.
+          git add data/
+          if git diff --staged --quiet; then
+            echo "No new data to commit"
+            exit 0
+          fi
+          git commit -m "chore(data): sweep $SCENARIO $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+
+          # Rebase before pushing. probe.yml runs every two hours, which includes
+          # the 02:00 slot this fires on, and pushes to the same branch. The two
+          # concurrency groups differ, so nothing serialises them: a rejected
+          # push would throw away a sweep that cannot be re-run against the same
+          # prices. Retried because the probe may land twice inside one sweep.
+          for attempt in 1 2 3; do
+            if git push; then
+              exit 0
+            fi
+            echo "push rejected (attempt $attempt), rebasing onto origin"
+            git pull --rebase --autostash
+          done
+          echo "::error::could not push sweep results after 3 attempts"
+          exit 1

@@ -1,0 +1,1186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flight Watcher Manual</title>
+<style>
+:root {
+  --paper:        #fbfcfd;
+  --paper-sunk:   #f1f4f6;
+  --paper-raised: #ffffff;
+  --ink:          #141b24;
+  --ink-soft:     #4a5764;
+  --ink-faint:    #79868f;
+  --rule:         #dde4e8;
+  --rule-strong:  #c3ced5;
+  --accent:       #0f6f75;
+  --accent-soft:  #e2f0f0;
+  --money:        #8a5a00;
+  --money-soft:   #fbf1de;
+  --stop:         #9a2f2a;
+  --stop-soft:    #fbeceb;
+  --chip:         #eef2f4;
+
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --serif: Georgia, "Iowan Old Style", "Palatino Linotype", Palatino, "Times New Roman", serif;
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, "Liberation Mono", Menlo, monospace;
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper:        #0e1419;
+    --paper-sunk:   #141c23;
+    --paper-raised: #18222a;
+    --ink:          #e5edf1;
+    --ink-soft:     #a3b1bb;
+    --ink-faint:    #74838d;
+    --rule:         #26333c;
+    --rule-strong:  #37474f;
+    --accent:       #5fd0d3;
+    --accent-soft:  #143133;
+    --money:        #e8b45c;
+    --money-soft:   #2c2213;
+    --stop:         #f0928c;
+    --stop-soft:    #2e1817;
+    --chip:         #1d2830;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --paper:        #0e1419;
+  --paper-sunk:   #141c23;
+  --paper-raised: #18222a;
+  --ink:          #e5edf1;
+  --ink-soft:     #a3b1bb;
+  --ink-faint:    #74838d;
+  --rule:         #26333c;
+  --rule-strong:  #37474f;
+  --accent:       #5fd0d3;
+  --accent-soft:  #143133;
+  --money:        #e8b45c;
+  --money-soft:   #2c2213;
+  --stop:         #f0928c;
+  --stop-soft:    #2e1817;
+  --chip:         #1d2830;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 17px;
+  line-height: 1.62;
+}
+
+/* ------------------------------------------------------------- shell */
+
+.shell {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 22px 120px;
+}
+
+@media (min-width: 1080px) {
+  .shell {
+    grid-template-columns: 232px minmax(0, 1fr);
+    gap: 56px;
+    padding-right: 40px;
+  }
+}
+
+/* ------------------------------------------------------------- masthead */
+
+.masthead {
+  grid-column: 1 / -1;
+  border-bottom: 2px solid var(--ink);
+  padding: 54px 0 26px;
+  margin-bottom: 44px;
+}
+
+.masthead__eyebrow {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 0 14px;
+}
+
+.masthead h1 {
+  font-family: var(--sans);
+  font-size: clamp(30px, 5.2vw, 46px);
+  font-weight: 650;
+  letter-spacing: -0.021em;
+  line-height: 1.08;
+  text-wrap: balance;
+  margin: 0 0 16px;
+}
+
+.masthead p {
+  margin: 0;
+  max-width: 62ch;
+  color: var(--ink-soft);
+  font-size: 18px;
+}
+
+.route {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 16px;
+  margin-top: 24px;
+  font-size: 13px;
+  color: var(--ink-faint);
+}
+
+.route__legs {
+  font-family: var(--mono);
+  letter-spacing: 0.02em;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+.route__note { font-family: var(--sans); font-size: 12.5px; }
+
+.route b { color: var(--accent); font-weight: 500; }
+
+/* ------------------------------------------------------------- contents */
+
+.contents { display: none; }
+
+@media (min-width: 1080px) {
+  .contents {
+    display: block;
+    position: sticky;
+    top: 0;
+    align-self: start;
+    max-height: 100vh;
+    overflow-y: auto;
+    padding: 4px 0 60px;
+    font-family: var(--sans);
+    font-size: 13.5px;
+    line-height: 1.45;
+  }
+}
+
+.contents h2 {
+  font-size: 10.5px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  font-weight: 600;
+  margin: 0 0 14px;
+}
+
+.contents ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
+
+.contents a {
+  display: block;
+  padding: 5px 10px 5px 12px;
+  color: var(--ink-soft);
+  text-decoration: none;
+  border-left: 2px solid var(--rule);
+  border-radius: 0 3px 3px 0;
+}
+
+.contents a:hover { color: var(--accent); border-left-color: var(--accent); background: var(--paper-sunk); }
+
+.contents li.is-sub a { padding-left: 24px; font-size: 12.5px; color: var(--ink-faint); }
+
+/* ------------------------------------------------------------- sections */
+
+main { min-width: 0; }
+
+section { margin-bottom: 60px; scroll-margin-top: 24px; }
+
+.sec-head { margin-bottom: 22px; }
+
+.sec-num {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+  display: block;
+  margin-bottom: 7px;
+}
+
+h2.sec-title {
+  font-family: var(--sans);
+  font-size: clamp(23px, 3.2vw, 30px);
+  font-weight: 640;
+  letter-spacing: -0.017em;
+  line-height: 1.15;
+  text-wrap: balance;
+  margin: 0;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--rule-strong);
+}
+
+h3 {
+  font-family: var(--sans);
+  font-size: 18.5px;
+  font-weight: 620;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+  margin: 36px 0 10px;
+}
+
+h4 {
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 640;
+  letter-spacing: 0.005em;
+  margin: 26px 0 8px;
+}
+
+p { margin: 0 0 15px; max-width: 68ch; }
+
+main ul, main ol.steps { max-width: 68ch; padding-left: 22px; margin: 0 0 15px; }
+main li { margin-bottom: 8px; }
+
+a { color: var(--accent); }
+
+strong { font-weight: 700; }
+
+/* --------------------------------------------------- on-screen labels */
+
+.ui {
+  font-family: var(--sans);
+  font-size: 0.83em;
+  font-weight: 600;
+  letter-spacing: 0.005em;
+  background: var(--chip);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: 1.5px 6px;
+  white-space: nowrap;
+  color: var(--ink);
+}
+
+.tab {
+  font-family: var(--sans);
+  font-size: 0.83em;
+  font-weight: 650;
+  background: var(--accent-soft);
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 1.5px 7px;
+  white-space: nowrap;
+  color: var(--accent);
+}
+
+code {
+  font-family: var(--mono);
+  font-size: 0.855em;
+  background: var(--paper-sunk);
+  border-radius: 3px;
+  padding: 1.5px 5px;
+  word-break: break-word;
+}
+
+pre {
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.6;
+  background: var(--paper-sunk);
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--rule-strong);
+  border-radius: 4px;
+  padding: 14px 16px;
+  overflow-x: auto;
+  margin: 0 0 18px;
+}
+
+pre code { background: none; padding: 0; font-size: inherit; }
+
+pre .cmt { color: var(--ink-faint); }
+
+/* ------------------------------------------------------------- notes */
+
+.note {
+  border-left: 3px solid var(--rule-strong);
+  background: var(--paper-sunk);
+  padding: 14px 18px;
+  margin: 0 0 20px;
+  border-radius: 0 4px 4px 0;
+  max-width: 68ch;
+}
+
+.note > :last-child { margin-bottom: 0; }
+
+.note__tag {
+  display: block;
+  font-family: var(--sans);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  margin-bottom: 7px;
+  color: var(--ink-faint);
+}
+
+.note--money { border-left-color: var(--money); background: var(--money-soft); }
+.note--money .note__tag { color: var(--money); }
+
+.note--stop { border-left-color: var(--stop); background: var(--stop-soft); }
+.note--stop .note__tag { color: var(--stop); }
+
+.note--key { border-left-color: var(--accent); background: var(--accent-soft); }
+.note--key .note__tag { color: var(--accent); }
+
+/* ------------------------------------------------------------- tables */
+
+.table-wrap { overflow-x: auto; margin: 0 0 20px; }
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 480px;
+  font-family: var(--sans);
+  font-size: 14px;
+}
+
+th {
+  text-align: left;
+  font-weight: 650;
+  font-size: 11px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  border-bottom: 1px solid var(--rule-strong);
+  padding: 0 14px 8px 0;
+  vertical-align: bottom;
+}
+
+td {
+  border-bottom: 1px solid var(--rule);
+  padding: 10px 14px 10px 0;
+  vertical-align: top;
+  color: var(--ink-soft);
+}
+
+td:first-child { color: var(--ink); font-weight: 550; white-space: nowrap; }
+
+td.num { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+th.num { text-align: right; }
+
+/* ------------------------------------------------------------ verdicts */
+
+.verdict {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------ steps */
+
+ol.steps { counter-reset: step; list-style: none; padding-left: 0; }
+
+ol.steps > li {
+  counter-increment: step;
+  position: relative;
+  padding-left: 38px;
+  margin-bottom: 14px;
+}
+
+ol.steps > li::before {
+  content: counter(step);
+  position: absolute;
+  left: 0;
+  top: 1px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  display: grid;
+  place-items: center;
+}
+
+/* ------------------------------------------------------------ footer */
+
+footer {
+  grid-column: 1 / -1;
+  border-top: 1px solid var(--rule-strong);
+  margin-top: 30px;
+  padding-top: 20px;
+  font-family: var(--sans);
+  font-size: 13px;
+  color: var(--ink-faint);
+  max-width: 68ch;
+}
+
+/* ------------------------------------------------------------ a11y */
+
+a:focus-visible, .contents a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+
+html { scroll-behavior: smooth; }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <header class="masthead">
+    <p class="masthead__eyebrow">Operating manual</p>
+    <h1>Finding a cheap way to fly a trip with several stops</h1>
+    <p>
+      You give it a date window, a handful of airports you could leave from and the places you want
+      to go. It searches, night after night, and tells you what the whole trip costs and when it
+      gets cheaper. This is how to drive it.
+    </p>
+    <p class="route">
+      <span class="route__legs">VIE <b>&rarr;</b> HND <b>&#8674;</b> KIX <b>&rarr;</b> CEB
+        <b>&rarr;</b> VIE</span>
+      <span class="route__note">the dashed arrow is the leg you travel yourself</span>
+    </p>
+  </header>
+
+  <nav class="contents" aria-label="Contents">
+    <h2>Contents</h2>
+    <ol>
+      <li><a href="#setup">Setting it up</a></li>
+      <li><a href="#how">How the searching works</a></li>
+      <li><a href="#cost">Public, private, and cost</a></li>
+      <li><a href="#wide">1 &nbsp;Cast a wide net</a></li>
+      <li class="is-sub"><a href="#airports">Your airports</a></li>
+      <li class="is-sub"><a href="#route">Building the route</a></li>
+      <li class="is-sub"><a href="#probe">Running a probe</a></li>
+      <li><a href="#cut">2 &nbsp;Cut it down</a></li>
+      <li class="is-sub"><a href="#verdicts">Reading the verdicts</a></li>
+      <li class="is-sub"><a href="#sweeps">Sweeping properly</a></li>
+      <li class="is-sub"><a href="#reading">Reading the results</a></li>
+      <li><a href="#settle">3 &nbsp;Settle and watch</a></li>
+      <li class="is-sub"><a href="#narrow">Narrowing it down</a></li>
+      <li class="is-sub"><a href="#follow">Following a price</a></li>
+      <li><a href="#discord">Discord</a></li>
+      <li><a href="#stopping">Stopping everything</a></li>
+      <li><a href="#wrong">When it looks wrong</a></li>
+      <li><a href="#reference">Reference</a></li>
+    </ol>
+  </nav>
+
+  <main>
+
+    <!-- ================================================== setting it up -->
+    <section id="setup">
+      <div class="sec-head">
+        <span class="sec-num">GETTING STARTED</span>
+        <h2 class="sec-title">Setting it up</h2>
+      </div>
+
+      <p>
+        Four things have to be in place. The fourth is the one that is easy to miss and stops
+        everything working.
+      </p>
+
+      <ol class="steps">
+        <li><strong>Python 3.12.</strong> Then <code>make install</code> in the repo folder, which
+          builds a virtual environment and pulls the dependencies.</li>
+        <li><strong>A browser for the scraper.</strong> <code>make pw-install</code> downloads the
+          Chromium that Playwright drives. It is a large download, once.</li>
+        <li><strong>A GitHub repo of your own</strong> holding this code, with Actions enabled and
+          its workflow permissions set to read and write. That setting lives under Settings,
+          Actions, General, and without it the nightly search cannot commit what it found.</li>
+        <li><strong>The GitHub CLI, installed and signed in.</strong> Install <code>gh</code>, then
+          run <code>gh auth login</code> once.</li>
+      </ol>
+
+      <div class="note note--key">
+        <span class="note__tag">Why the GitHub CLI matters</span>
+        <p>
+          Every button that starts a search asks GitHub to run it, and the app asks through
+          <code>gh</code>. Without it the buttons fail and the cloud panels say they cannot tell what
+          is happening. Nothing else in the setup has that effect.
+        </p>
+      </div>
+
+      <h3>Starting it</h3>
+
+      <p>
+        On Windows, double-click <code>start-ui.bat</code>. It finds the virtual environment, starts
+        the server and opens the browser at <code>http://localhost:8000</code>. Closing that window
+        stops the server. On anything else, <code>make ui</code> does the same thing.
+      </p>
+
+      <p>
+        The page opens on an example trip so there is something to look at: Vienna to Tokyo, across
+        Japan overland, on to Cebu, home again. It is switched off, so nothing will search it. Edit
+        it into your own trip, or press <span class="ui">+ New trip</span> and delete the example
+        once you no longer need it.
+      </p>
+    </section>
+
+    <!-- ================================================== how it works -->
+    <section id="how">
+      <div class="sec-head">
+        <span class="sec-num">THE ONE RULE</span>
+        <h2 class="sec-title">The searching does not happen on your laptop</h2>
+      </div>
+
+      <p>
+        This is the single fact that explains the shape of everything else. The site being searched
+        answers about <strong>120 searches from one internet connection</strong> and then goes
+        quiet. Not slower. Silent. A thorough search of a three-stop trip is three to five hundred
+        searches, so it can only be done by splitting the work across several machines at once, and
+        that is what GitHub Actions is for.
+      </p>
+
+      <p>
+        So every run button hands the job to GitHub. Your laptop can be shut the whole time. When a
+        run finishes it writes what it found into the repository as a commit, which is how the
+        results get back to you.
+      </p>
+
+      <div class="note">
+        <span class="note__tag">The bar at the top of the page</span>
+        <p>
+          Because results arrive as commits, your copy of the folder falls behind. A strip appears
+          above everything saying how many runs are on GitHub but not on this machine.
+          <span class="ui">Get them</span> pulls them down normally.
+          <span class="ui">Just get the results</span> appears instead when a plain pull would be
+          messy: it copies only the result folders and leaves your own work alone.
+        </p>
+      </div>
+
+      <p>
+        One consequence worth knowing early: <strong>the trip is searched as it is saved on
+        GitHub</strong>, not as it looks on your screen. Every save publishes the trip up, and if
+        the two ever disagree a run is refused with a message naming what differs. That is deliberate.
+        Searching a version of the trip you cannot see would waste an hour and tell you nothing.
+      </p>
+    </section>
+
+    <!-- ================================================== cost -->
+    <section id="cost">
+      <div class="sec-head">
+        <span class="sec-num">MONEY</span>
+        <h2 class="sec-title">Keep the repository public</h2>
+      </div>
+
+      <p>
+        GitHub gives unlimited Actions minutes to public repositories and 2,000 a month to private
+        ones. The schedule below is comfortably free on a public repo and does not fit in 2,000
+        minutes on a private one.
+      </p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>What runs</th><th>When</th><th class="num">Per day</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Full sweep</td><td>02:00 UTC, every trip you ticked on</td><td class="num">1</td></tr>
+            <tr><td>Narrowed sweep</td><td>13:00 and 20:00 UTC, only if you asked</td><td class="num">2</td></tr>
+            <tr><td>Price check</td><td>every four hours, only what you follow</td><td class="num">6</td></tr>
+            <tr><td>Volatility probe</td><td>ships switched off</td><td class="num">0</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="note note--money">
+        <span class="note__tag">The trap</span>
+        <p>
+          A scheduled run costs a minute or so <em>even when it decides to do nothing</em>. Nine
+          wake-ups a day is around 270 minutes a month before a single flight has been searched, and
+          the searching itself is far more. Untick every trip and that cost does not go away, because
+          the schedule is still running. Turning it off properly is
+          <a href="#stopping">its own section</a>.
+        </p>
+      </div>
+
+      <p>
+        Public means the trips you plan and the prices you find are readable by anyone who finds the
+        repository. That is the trade. If you would rather it were private, the workable pattern is
+        to plan the trip in the open, book it, pause the schedule, and only then make the repository
+        private, where it costs nothing because nothing is running.
+      </p>
+
+      <div class="note">
+        <span class="note__tag">One more thing about schedules</span>
+        <p>
+          GitHub switches scheduled workflows off by itself after 60 days without activity in the
+          repository. If sweeps stop for no apparent reason after a quiet couple of months, that is
+          usually why, and the panel under the gear will say so rather than just showing them off.
+        </p>
+      </div>
+    </section>
+
+    <!-- ================================================== phase 1 -->
+    <section id="wide">
+      <div class="sec-head">
+        <span class="sec-num">PHASE 1</span>
+        <h2 class="sec-title">Cast a wide net</h2>
+      </div>
+
+      <p>
+        The situation this is built for: there is a stretch of weeks you could travel in, several
+        airports you could plausibly leave from, and a rough idea of where you want to go. You do
+        not yet know which combination is affordable. Phase one is about finding out cheaply, before
+        committing hours of searching to options that were never going to work.
+      </p>
+
+      <h3 id="airports">Your airports</h3>
+
+      <p>
+        Start under the gear, in <span class="ui">Your airports</span>. This is a ranked list of the
+        airports you can actually get to, easiest first, and it is about the journey to the airport
+        and nothing else. Not price. Not how often you have used them. Two airports that are equally
+        awkward go on the same row, because forcing an order on them would invent a preference you
+        do not hold.
+      </p>
+
+      <p>
+        It does two jobs. It becomes the one-click suggestions beside every airport box, and it is
+        the order Discord reports in. You can still type any airport in the world; this only decides
+        what is offered without typing.
+      </p>
+
+      <h3 id="route">Building the route</h3>
+
+      <p>
+        Go to <span class="tab">Map it out</span>, sub-tab <span class="ui">Search options</span>.
+        The <span class="ui">When</span> panel takes the trip name, the window the whole trip has to
+        fit inside, how many of you there are and the currency. Make the window generous. Narrowing
+        comes later and is easy; a window that was too tight from the start quietly hides the answer.
+      </p>
+
+      <p>The <span class="ui">Route</span> panel reads top to bottom, the way you would travel:</p>
+
+      <ul>
+        <li><strong><span class="ui">Depart from</span></strong> takes as many airports as you are
+          willing to leave from. Type a city, a country or a three-letter code and press Enter. Each
+          one you add multiplies the searching, so add the ones you would genuinely use.</li>
+        <li><strong>Each stop</strong> is a numbered card: what to call it, how many nights you want
+          there as a range, and which airports would serve. Several airports on one stop means
+          "whichever is cheapest".</li>
+        <li><strong>Arriving and leaving by different airports</strong> is the checkbox on a stop
+          card with two or more airports. Tick it for the classic case of flying into one city,
+          travelling across the country yourself, and flying onward from another. You then pin which
+          is the way in and which is the way out.</li>
+        <li><strong><span class="ui">Return to</span></strong> is how the trip ends. Leave it
+          matching your departure airports for a normal return trip, change it to end somewhere else,
+          or empty it entirely for a one-way. There is no separate one-way switch.</li>
+      </ul>
+
+      <p>
+        Press <span class="ui">Save trip</span>. Nothing is searched by saving.
+      </p>
+
+      <h3 id="probe">Running a probe</h3>
+
+      <p>
+        The <span class="ui">Run</span> panel has one button per kind of run, each showing what it
+        will cost in searches and minutes before you press it. Start with
+        <span class="ui">Probe</span>.
+      </p>
+
+      <p>
+        A probe is the cheap reconnaissance run. Rather than pricing every date, it prices every
+        route on three dates spread across your window, which is enough to rank airports against
+        each other. Fifty-odd searches instead of five hundred. It is the difference between a
+        couple of minutes and most of an afternoon, and it answers the question phase one is
+        actually asking: <em>which of these options are worth the expensive search?</em>
+      </p>
+
+      <div class="note">
+        <span class="note__tag">What a probe will not do</span>
+        <p>
+          It never changes your trip. It reports, and you decide. It also never gives you a fare you
+          could book &mdash; three sampled dates are a floor to compare airports by, not a price.
+        </p>
+      </div>
+    </section>
+
+    <!-- ================================================== phase 2 -->
+    <section id="cut">
+      <div class="sec-head">
+        <span class="sec-num">PHASE 2</span>
+        <h2 class="sec-title">Cut it down</h2>
+      </div>
+
+      <p>
+        Now throw away what does not work. This is where a trip goes from twelve plausible
+        combinations to two or three real ones, and it is worth doing properly, because everything
+        after this is slow.
+      </p>
+
+      <h3 id="verdicts">Reading the verdicts</h3>
+
+      <p>
+        The <span class="ui">Probe results</span> sub-tab, headed <em>Worth searching?</em>, is one
+        row per airport, grouped by the job it does in the trip: your departure airports together,
+        each stop together, the return together. Each airport is judged only against the others that
+        could do the same job.
+      </p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Verdict</th><th>What it means</th><th>What to do</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="verdict">best</span></td>
+              <td>Cheapest of its group</td>
+              <td>Keep</td>
+            </tr>
+            <tr>
+              <td><span class="verdict">close</span></td>
+              <td>Within 15% of the best</td>
+              <td>Keep &mdash; on other dates it may win</td>
+            </tr>
+            <tr>
+              <td><span class="verdict">worse</span></td>
+              <td>Up to 50% over</td>
+              <td>Your call, and it costs searching</td>
+            </tr>
+            <tr>
+              <td><span class="verdict">poor</span></td>
+              <td>More than 50% over</td>
+              <td>Drop it</td>
+            </tr>
+            <tr>
+              <td><span class="verdict">no offers</span></td>
+              <td>Asked several times, answered, nothing on sale</td>
+              <td>Drop it. Real absence of flights</td>
+            </tr>
+            <tr>
+              <td><span class="verdict">unproven</span></td>
+              <td>The site never answered</td>
+              <td>Not a finding. Probe again</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>
+        The last two look similar and mean opposite things. <span class="verdict">no offers</span>
+        is information: that airport genuinely sells nothing on that route, which is common for
+        convenient regional airports and is exactly the kind of thing worth writing down so you do
+        not reconsider it in six months. <span class="verdict">unproven</span> is an absence of
+        information.
+      </p>
+
+      <p>
+        Each row has <span class="ui">Remove from trip</span>. There is also
+        <span class="ui">Keep probing it</span>, which takes an airport out of the expensive
+        searching but keeps sampling it cheaply &mdash; useful for the one that was close but not
+        close enough, in case it moves. Removals gather in a bar at the bottom with
+        <span class="ui">Undo</span>, so deciding about six airports is one pass and one save rather
+        than six rounds.
+      </p>
+
+      <h3 id="sweeps">Sweeping properly</h3>
+
+      <p>
+        With the field cut down, search for real. Back on <span class="ui">Search options</span>,
+        the <span class="ui">Run</span> panel offers two:
+      </p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Run</th><th>Prices</th><th>Use it</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="ui">Quick sweep</span></td>
+              <td>Every 7th day of the window</td>
+              <td>To see the shape of the window fast</td>
+            </tr>
+            <tr>
+              <td><span class="ui">Deep sweep</span></td>
+              <td>Every single day</td>
+              <td>When you are choosing actual dates</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>
+        A deep sweep takes a couple of hours in the cloud. Start it and go away; you are not waiting
+        on it. The nightly schedule always runs at full depth regardless of which button you last
+        pressed.
+      </p>
+
+      <h3 id="reading">Reading the results</h3>
+
+      <p>
+        The <span class="ui">Search results</span> sub-tab shows one run two ways, and they answer
+        different questions.
+      </p>
+
+      <h4>The charts, one per leg</h4>
+
+      <p>
+        <em>Every flight, priced on its own</em> stacks one chart per leg on a shared date axis, each
+        with a marker you drag. <strong>A vertical slice down the stack is one whole trip.</strong>
+        Drag the first leg later and the ones below it follow. Above the charts a readout gives the
+        total including bags, how the nights divide up, and a badge saying whether that combination
+        obeys the rules you set or breaks one and how.
+      </p>
+
+      <p>
+        Nothing is forced on you. You may drag into a combination that breaks your own stay ranges,
+        and the badge will say so rather than refuse. The only thing actually prevented is a leg
+        departing before the one before it has landed.
+      </p>
+
+      <p>
+        <span class="ui">Snap to the cheapest that fits</span> jumps every marker to the cheapest
+        combination that obeys every rule. It is usually the fastest way to see what your
+        constraints actually cost you.
+      </p>
+
+      <p>
+        A date with a small tick on the floor was searched and sold nothing. A date with a gap in
+        the line was never searched. Those are different, and the charts keep them apart.
+      </p>
+
+      <h4>The ranking</h4>
+
+      <p>
+        Below, the same run as a sorted table: cheapest first, with the route, dates, airlines,
+        whether bags are included, and the total. Filter by departure airport, by return airport, or
+        to only fares that include baggage. Expanding a row shows each flight on its own with times,
+        airline, a link that opens the actual offer, and a <span class="ui">Follow</span> button.
+      </p>
+
+      <div class="note">
+        <span class="note__tag">Every price carries its age</span>
+        <p>
+          Fares move. Nothing here is presented as current without saying when it was measured, and a
+          run too incomplete to compare fairly is never drawn as part of a trend. If a warning says
+          coverage was below 100%, the site refused some of the searches and the cheapest shown may
+          simply be the cheapest of what got through.
+        </p>
+      </div>
+    </section>
+
+    <!-- ================================================== phase 3 -->
+    <section id="settle">
+      <div class="sec-head">
+        <span class="sec-num">PHASE 3</span>
+        <h2 class="sec-title">Settle on one, then watch it</h2>
+      </div>
+
+      <p>
+        You have a shape you like: roughly these dates, roughly this long in each place. Now stop
+        searching the whole window and start watching the thing you actually intend to book.
+      </p>
+
+      <h3 id="narrow">Narrowing it down</h3>
+
+      <p>
+        The <span class="tab">Narrow it down</span> step has three controls and they are independent:
+      </p>
+
+      <ul>
+        <li><strong><span class="ui">Leave between</span></strong> bounds the first flight out.</li>
+        <li><strong><span class="ui">Fly home between</span></strong> bounds the last flight
+          back.</li>
+        <li><strong>The nights chip</strong> bounds the whole trip, for example 24 to 28 nights
+          away. Clear it with its small &times;.</li>
+      </ul>
+
+      <p>
+        Per-stop stay lengths are here too. A line above the buttons always spells out, in plain
+        words, what these dates are currently doing, because they do two separate things: they filter
+        what you are reading on this step, and they define what the narrowed sweep searches. A
+        combination nothing could satisfy is refused by name rather than silently returning nothing.
+      </p>
+
+      <p>
+        <span class="ui">Sweep narrowed</span> prices only what you narrowed to, which is a fraction
+        of the full window and therefore quick enough to run twice a day. Everything below on this
+        step is drawn from narrowed runs only, never mixed with the broad ones.
+      </p>
+
+      <h3 id="follow">Following a price</h3>
+
+      <p>
+        Two things can be followed, and the <span class="tab">Follow it</span> step keeps them
+        separate.
+      </p>
+
+      <h4>A preference &mdash; the whole trip, on dates you picked</h4>
+
+      <p>
+        From the charts, drag to the combination you want and press
+        <span class="ui">Save as preference</span>. From then on, every four hours, that exact trip
+        is re-priced and plotted. You get up to four, each with a <em>slack</em> setting: exact days,
+        or anything up to three days either side. Slack is what lets it tell you that leaving a day
+        later would have been cheaper, which appears as a sentence under the row with a
+        <span class="ui">Move it to those dates</span> button. Moving keeps the history rather than
+        restarting it.
+      </p>
+
+      <h4>A followed flight &mdash; one leg</h4>
+
+      <p>
+        The <span class="ui">Follow</span> button on any single flight. One search per check, so it
+        is cheap, and it is the right tool when only one leg is the problem &mdash; the long-haul
+        that dominates the total while the short hops barely move.
+      </p>
+
+      <p>
+        A summary line at the top of the step says exactly what you are spending: how many searches
+        every four hours, for both panels together. Nothing here changes when you edit the trip or
+        the narrowing. What you chose to follow stays followed until you say otherwise.
+      </p>
+
+      <h4>The long view</h4>
+
+      <p>
+        <em>Best total over time</em> plots sweep against sweep. Only runs that finished and covered
+        every route the trip currently plans are joined into the line; the rest are drawn hollow and
+        dashed and never called the best. Broad and narrowed runs are two separate lines, because
+        they are measuring different things and averaging them would be meaningless.
+      </p>
+    </section>
+
+    <!-- ================================================== discord -->
+    <section id="discord">
+      <div class="sec-head">
+        <span class="sec-num">NOTIFICATIONS</span>
+        <h2 class="sec-title">Discord</h2>
+      </div>
+
+      <p>
+        Optional, and the only notification channel. In a Discord server you can manage, open a
+        channel's settings, Integrations, Webhooks, create one and copy its URL.
+      </p>
+
+      <p>
+        Paste it under the gear, in <span class="ui">Discord</span>, and press
+        <span class="ui">Save webhook</span>, then <span class="ui">Send a test message</span>. It is
+        stored in a <code>.secrets</code> folder that is never committed. For the scheduled runs,
+        which happen on GitHub and cannot see your laptop, add the same URL as a repository secret:
+      </p>
+
+      <pre><code>gh secret set DISCORD_WEBHOOK_URL -R &lt;your-user&gt;/&lt;your-repo&gt;</code></pre>
+
+      <div class="note note--stop">
+        <span class="note__tag">Treat the URL as a password</span>
+        <p>
+          Anyone holding it can post to that channel. Never commit it, never paste it into an issue.
+          If it leaks, delete the webhook in Discord and make a new one.
+        </p>
+      </div>
+
+      <p>
+        You choose what gets sent: the cheapest trip overall, the cheapest from the airports you
+        prefer, or only when something beats the best price seen so far. That last one is the
+        difference between a useful message and a nightly one you learn to ignore. A followed flight
+        is only reported when it drops by more than one percent.
+      </p>
+    </section>
+
+    <!-- ================================================== stopping -->
+    <section id="stopping">
+      <div class="sec-head">
+        <span class="sec-num">WINDING DOWN</span>
+        <h2 class="sec-title">Stopping everything</h2>
+      </div>
+
+      <p>
+        When the trip is booked, you want it all to stop. There are two separate levers and it
+        matters which one you reach for.
+      </p>
+
+      <h3>Taking one trip out of the rotation</h3>
+
+      <p>
+        In the schedule dialog, reachable from <span class="ui">Scheduled sweeping</span>, untick
+        <span class="ui">Sweep the whole window, nightly</span>. That trip stops being swept and
+        stops being checked. Other trips carry on. Use this when you are done with one journey but
+        still planning another.
+      </p>
+
+      <h3>Stopping the machine</h3>
+
+      <p>
+        Under the gear, in <span class="ui">The cloud</span>, is a line saying what is currently
+        scheduled and roughly what it costs a month, and one button:
+        <span class="ui">Pause all scheduled runs</span>.
+      </p>
+
+      <p>
+        This switches the scheduled workflows off in GitHub itself. Not "wake up and do nothing"
+        &mdash; genuinely off, starting nothing and costing nothing. It leaves every trip exactly as
+        it was, so <span class="ui">Resume scheduled runs</span> brings back the same schedule
+        later. Runs you start by hand still work while paused.
+      </p>
+
+      <div class="note note--key">
+        <span class="note__tag">Making the repository private</span>
+        <p>
+          Pause first, check the panel says nothing is scheduled, then change the repository to
+          private. In that order it costs nothing. In the other order the schedule starts eating
+          your 2,000 free minutes the same night.
+        </p>
+      </div>
+
+      <p>
+        The panel also distinguishes a pause you made from GitHub switching a workflow off after
+        60 days of quiet, because otherwise those look identical and only one of them is something
+        you did.
+      </p>
+
+      <h3>Stopping a run that is going now</h3>
+
+      <p>
+        <span class="ui">Stop this run</span>, in the strip at the top of the page. It finishes the
+        search already in flight and keeps everything found so far rather than throwing the run away.
+        If a stopped or interrupted run left part of its plan unsearched, a
+        <span class="ui">Resume</span> button appears to finish it.
+      </p>
+    </section>
+
+    <!-- ================================================== troubleshooting -->
+    <section id="wrong">
+      <div class="sec-head">
+        <span class="sec-num">TROUBLESHOOTING</span>
+        <h2 class="sec-title">When it looks wrong</h2>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>What you see</th><th>What it means</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>The page says to restart the server</td>
+              <td>The running server is older than the page it is serving. Restart it. This is
+                deliberate: an empty page must never be mistaken for lost data.</td>
+            </tr>
+            <tr>
+              <td>"The site is refusing this client"</td>
+              <td>The rate limit. The run pauses, backs off and, if it continues, ends as
+                <em>throttled</em> and records honestly how much it covered. Not a bug and nothing to
+                fix. Try later.</td>
+            </tr>
+            <tr>
+              <td>A run finished in seconds and looks successful</td>
+              <td>It searched nothing. Usually the trip on GitHub is not the trip on your screen, or
+                the run asked for something that trip cannot do. The recent runs list flags these.</td>
+            </tr>
+            <tr>
+              <td>Coverage below 100%</td>
+              <td>Some searches went unanswered. The cheapest shown is the cheapest of what got
+                through, which may not be the cheapest there was.</td>
+            </tr>
+            <tr>
+              <td>Panels say they cannot tell</td>
+              <td><code>gh</code> is missing, not signed in, or offline. The schedule on GitHub is
+                unaffected; only this app's view of it is.</td>
+            </tr>
+            <tr>
+              <td>Nothing has run for weeks</td>
+              <td>Check the gear. Either the schedule is paused, or GitHub switched it off after 60
+                days of quiet, or no trip is ticked on.</td>
+            </tr>
+            <tr>
+              <td>Prices look wrong across the board</td>
+              <td>The site changed its markup. Under the gear,
+                <span class="ui">Where the prices come from</span> has
+                <span class="ui">Check them all</span>, and a repair box exposing the selectors.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ================================================== reference -->
+    <section id="reference">
+      <div class="sec-head">
+        <span class="sec-num">REFERENCE</span>
+        <h2 class="sec-title">Where things live</h2>
+      </div>
+
+      <p>There is no database. Everything is a file, and that is why the history travels in git.</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Path</th><th>Holds</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>scenarios/</code></td><td>One file per trip. Committed, and what the cloud searches</td></tr>
+            <tr><td><code>data/sweeps/</code></td><td>Every search run: the flights found, and how complete it was</td></tr>
+            <tr><td><code>data/watch/</code></td><td>The price history of what you follow</td></tr>
+            <tr><td><code>data/home_airports.json</code></td><td>Your ranked airports. Delete to start over</td></tr>
+            <tr><td><code>data/airport_notes.json</code></td><td>Findings no sweep can reproduce. Yours to write</td></tr>
+            <tr><td><code>.secrets/</code></td><td>The Discord webhook. Never committed</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>From a terminal</h3>
+
+      <pre><code>make ui              <span class="cmt"># start the control panel on :8000</span>
+make test            <span class="cmt"># the test suite</span>
+make probe-report    <span class="cmt"># summarise how much prices have moved</span>
+
+<span class="cmt"># price one route right now, without a sweep</span>
+python -m src.cli check-price --origin VIE --destination HND --date 2027-01-12</code></pre>
+
+      <h3>The volatility probe</h3>
+
+      <p>
+        A small extra that answers "how fast do these fares actually move", by sampling a few fixed
+        routes every couple of hours. It is what established that fares move day to day rather than
+        within a day, which is why sweeping nightly is enough.
+      </p>
+
+      <p>
+        <strong>It ships switched off and with no routes</strong>, for two reasons. Its routes are
+        fixed rather than read from your trip, so that months of observations stay comparable, which
+        also means inherited routes would measure someone else's journey. And every two hours is
+        about 720 Actions minutes a month: free on a public repo, more than a third of the allowance
+        on a private one. To use it, put your own routes in <code>src/probe.py</code> and add a
+        schedule back to <code>.github/workflows/probe.yml</code>. The comments in both files say how.
+      </p>
+    </section>
+
+  </main>
+
+  <footer>
+    <p>
+      The <a href="README.md">README</a> is the reference behind this manual: why each decision was
+      made and which failure forced it. This document says what to press; that one says why it
+      behaves the way it does.
+    </p>
+  </footer>
+
+</div>
+
+</body>
+</html>

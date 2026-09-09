@@ -1,0 +1,1396 @@
+/*
+ * Component styles ported from the Finance-planner design system, trimmed to
+ * the classes this UI actually uses and extended with a few flight-specific
+ * ones (.chart, .status-strip, .typeahead).
+ *
+ * Unlike palette.css and theme.css beside it, this file is trimmed rather than
+ * kept verbatim - so a block nothing carries the classes for is deleted. An
+ * .airport-grid card grid lived here until the typeahead and chips replaced it.
+ *
+ * A copy, not a shared dependency: the two projects will drift. Style fixes
+ * worth keeping should be made in both.
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--color-pageBackground);
+  color: var(--color-pageText);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 {
+  margin: 0;
+  font-weight: 600;
+  line-height: 1.25;
+}
+h1 { font-size: 24px; }
+h2 { font-size: 17px; }
+h3 { font-size: 14px; }
+
+p { margin: 0 0 12px; }
+a { color: var(--color-pageTextLink); }
+
+/* Prices only line up in a column with tabular numerals. */
+.tnum,
+table.data td.num,
+table.data th.num,
+.stat__value {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+}
+
+/* ------------------------------------------------------------------ layout */
+
+.main {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 28px 32px 64px;
+}
+
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.page-header__sub {
+  margin: 4px 0 0;
+  color: var(--color-pageTextLight);
+  max-width: 70ch;
+}
+
+.panel {
+  background: var(--color-panelBackground);
+  border: 1px solid var(--color-tableBorder);
+  border-radius: 10px;
+  padding: 18px 20px;
+  margin-bottom: 20px;
+}
+
+.panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+/* Grey prose, in two kinds that look identical and behave differently. See
+   "explanations on demand" below for which is which. */
+.explain,
+.answer {
+  margin: 8px 0 14px;
+  color: var(--color-pageTextLight);
+  font-size: 13px;
+}
+
+/* ------------------------------------------------------------------ spacing --
+
+   One scale for the gaps between a panel's parts, expressed as adjacency rather
+   than typed onto each element. It used to be thirty-one inline margins across
+   twelve values - 0, 6, 8, 10, 12, 14, 16, 18, 20, 22 - chosen a panel at a
+   time, which is why no two sub-sections on the page began at the same distance
+   from the heading above them. `tests/test_web_contract.py` keeps them out.
+
+   **Everything gets air; the exceptions are named.** This was the other way
+   round - four selectors listing which children were spaced - and the trouble
+   with enumerating what gets a margin is that the list is only correct on the
+   day it is written. Every element type added since was absent from it and sat
+   flush against whatever was above: the run buttons under their heading, the
+   date grid, the airport chips, an empty-state. Stated as a default, a new kind
+   of block is spaced correctly before anyone thinks about it, and the four
+   things that genuinely differ say so below.
+
+   A hidden sibling generates no box, so the visible element after it still gets
+   its margin from here - the behaviour the enumerated rule already relied on. */
+.panel > * + * { margin-top: 16px; }
+
+/* A row inside a disclosure is enclosed rather than the panel's own, and needs
+   air on both sides of it. */
+.disclosure > .row { margin: 12px 0; }
+
+/* A line a renderer writes under the controls it describes: what tonight costs
+   this trip, what a saved webhook answered, which routes a run left unpriced.
+   Empty most of the time, so it carries no margin at all then - a gap under
+   nothing reads as a panel that failed to draw something. */
+.panel > .panel__line { margin-top: 12px; }
+.panel > .panel__line:empty { margin-top: 0; }
+
+/* Prose sits closer to what it is about than two blocks sit to each other: a
+   paragraph belongs to the thing above it. */
+.panel > * + .explain,
+.panel > * + .answer { margin-top: 8px; }
+
+/* And directly under the panel's own title it tucks up by 6px to cancel the
+   header's bottom margin. Written after the two rules above because all three
+   have the same specificity and the last one wins - this tuck was above them
+   for a while and was quietly doing nothing. */
+.panel > .panel__header + .explain,
+.panel > .panel__header + .answer { margin-top: -6px; }
+
+/* An error box is hidden until it is not, and when it appears it belongs to the
+   control that produced it rather than floating a block away from it. */
+.panel > * + .panel-error { margin-top: 10px; }
+
+/* A sub-heading inside a panel. One treatment, shared with the exploration
+   report's sections below, because a panel divided into parts should look
+   divided the same way on every step. */
+.subhead,
+.panel__section > h3 {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-pageTextLight);
+  margin: 20px 0 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--color-tableBorder);
+}
+
+.panel > .subhead:first-child,
+.panel__section > h3 { margin-top: 0; }
+
+/* ------------------------------------------------ explanations on demand --
+
+   Every panel here explains itself, and the explanations are worth keeping:
+   most of them record a failure that cost a day. What they should not be is
+   the first thing read, every time, on a screen you have already understood.
+
+   The split is between teaching and telling, and it is now one class per
+   meaning rather than a class and an exemption from it:
+
+     `.explain`  prose about how a mechanic works. Collapses.
+     `.answer`   a statement about what is on screen - which run priced this
+                 pool, how many routes are not drawn, what a source replied.
+                 Never collapses.
+
+   It was `.panel__hint` with a `--live` modifier that opted out, which meant
+   every renderer writing grey prose reached for the modifier and got a
+   paragraph the switch could not touch. Turning explanations off then left
+   most of the teaching on screen, which is exactly the complaint. A modifier
+   naming the thing it exempts invites that; two names do not.
+
+   Notices and warnings are neither and are untouched.
+
+   Collapsed by a class on the panel rather than `hidden` on the prose, so the
+   text stays in the DOM for find-in-page and for anything reading it. */
+/* The global default reaches everything, including prose that is not inside a
+   panel - a notice in a section, a line a renderer appended somewhere else.
+   Scoping the switch to panels left exactly that kind of paragraph on screen. */
+body.hints-off .explain { display: none; }
+
+/* And a panel is allowed to disagree with the default, in either direction.
+   Both states are named so that the "opened" one can out-specify the rule
+   above; a single `is-quiet` could only ever hide, never re-show. */
+.panel.is-loud .explain { display: revert; }
+.panel.is-quiet .explain { display: none; }
+
+.panel__info {
+  padding: 2px 8px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--color-pageTextLight);
+  border-color: transparent;
+  background: transparent;
+}
+
+.panel__info:hover:not(:disabled) {
+  background: var(--color-buttonNormalBackgroundHover);
+  border-color: var(--color-buttonNormalBorder);
+}
+
+/* Open reads as pressed, so the one panel you have expanded is findable when
+   the rest are quiet. */
+.panel__info[aria-expanded="true"] {
+  color: var(--color-pageText);
+  background: var(--color-buttonNormalBackground);
+  border-color: var(--color-buttonNormalBorder);
+}
+
+/* The same chevron the disclosures use, for the same meaning. */
+.panel__info::before {
+  content: '›';
+  display: inline-block;
+  margin-right: 5px;
+  transition: transform 0.12s ease;
+}
+
+.panel__info[aria-expanded="true"]::before { transform: rotate(90deg); }
+
+/* The header is `justify-content: space-between`, and a third child would push
+   the badge that belongs beside the title away from it. The button sits at the
+   end of the row instead, always in the same place on every panel. */
+.panel__header .panel__info { margin-left: auto; }
+
+/* Airports dropped in the Explore tab but not yet saved. Sticks to the top of
+   the panel so that after scrolling through four pools of verdicts, what you
+   have decided - and the button that commits it - are still in front of you. */
+#explore-pending {
+  position: sticky;
+  top: 8px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--color-warningBackground);
+  color: var(--color-warningText);
+  border-color: var(--color-warningText);
+}
+
+/* An airport dropped but not yet saved. Struck through rather than removed:
+   the table is a reading of one sweep, and deleting rows from it as you decide
+   would leave you unable to see what you compared against. */
+tr.is-dropped { opacity: 0.45; }
+tr.is-dropped td:first-child { text-decoration: line-through; }
+
+/* An airport this run priced that your trip does not contain. Dimmed, but never
+   struck through: a line through it says *you* took it out, and a whole table
+   of those is what a report of the wrong trip used to look like. */
+tr.is-outside { opacity: 0.6; }
+
+/* One airport pool of the exploration report. Separated by a rule rather than
+   nested panels: they are one reading, not four cards. */
+.panel__section { margin-bottom: 22px; }
+.panel__section:last-child { margin-bottom: 0; }
+
+.row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* A `label.field` is a two-line column - a 12px label stacked over its control -
+   so centring it against single-line buttons put their bottom edges about seven
+   pixels apart. Every run row and every filter row on every tab sat like that.
+   Aligning on the bottom edge instead is what makes a row read as one line. */
+.row:has(label.field) { align-items: flex-end; }
+.spacer { flex: 1; }
+.stack { display: flex; flex-direction: column; gap: 12px; }
+.muted { color: var(--color-pageTextLight); }
+.small { font-size: 12px; }
+
+.empty {
+  padding: 28px 8px;
+  text-align: center;
+  color: var(--color-pageTextLight);
+}
+
+/* Shown instead of the tabs when the page cannot trust what it would draw.
+   Deliberately loud: the failure it replaces used to look like an empty app. */
+.notice {
+  border: 1px solid var(--color-tableBorder);
+  border-radius: 10px;
+  padding: 18px 20px;
+  margin-bottom: 20px;
+}
+
+.notice--error {
+  background: var(--color-errorBackground);
+  color: var(--color-errorText);
+  border-color: var(--color-errorText);
+}
+
+/* Loud enough to be read before the table under it, which is the whole point:
+   the numbers below are about a trip you are no longer planning. */
+.notice--warning {
+  background: var(--color-warningBackground);
+  color: var(--color-warningText);
+  border-color: var(--color-warningText);
+}
+.notice--warning button { margin-top: 10px; }
+
+/* The count of cloud runs not on this machine, and the button that fetches
+   them. Inline rather than stacked: it sits directly under the sweep picker it
+   is correcting, and a full-height warning block there would push the prices
+   off the screen every time a night sweep landed. */
+.cloud-sync {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+}
+
+/* The same notice as a full-width bar under the status strip: square, flush to
+   both edges and with no margin under it, so the page below starts where it
+   would if the bar were not there. It is hidden far more often than not. */
+.cloud-sync--bar {
+  margin: 0;
+  border-width: 0 0 1px;
+  border-radius: 0;
+  padding: 8px 32px;
+}
+
+.cloud-sync--bar button { margin-top: 0; }
+.cloud-sync button { margin-top: 0; flex: none; }
+
+.notice h2 { margin: 0 0 8px; font-size: 16px; }
+.notice p  { margin: 0 0 10px; max-width: 80ch; }
+.notice code {
+  background: var(--color-panelBackground);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+/* -------------------------------------------------------------------- tabs */
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--color-tableBorder);
+}
+
+.tabs button {
+  border: none;
+  background: none;
+  border-radius: 0;
+  border-bottom: 2px solid transparent;
+  color: var(--color-pageTextLight);
+  padding: 8px 14px;
+  font-weight: 500;
+}
+
+.tabs button:hover:not(:disabled) {
+  background: none;
+  color: var(--color-pageText);
+}
+
+.tabs button.is-active {
+  color: var(--color-accentText);
+  border-bottom-color: var(--color-accent);
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------------ tables */
+
+.table-scroll {
+  overflow-x: auto;
+  margin: 0 -20px;
+  padding: 0 20px;
+}
+
+table.data {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+table.data th,
+table.data td {
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--color-tableBorder);
+  white-space: nowrap;
+}
+
+table.data th {
+  color: var(--color-tableHeaderText);
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+table.data td.num,
+table.data th.num { text-align: right; }
+
+table.data tbody tr:hover { background: var(--color-tableRowHover); }
+
+/* ----------------------------------------------------------------- badges */
+
+/* An element carrying both [hidden] and a class that sets `display` stays
+   visible without this - `display: inline-block` outranks the attribute. */
+[hidden] { display: none !important; }
+
+.badge {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--color-accentSubtle);
+  color: var(--color-accentText);
+  white-space: nowrap;
+}
+
+.badge--warning { background: var(--color-warningBackground); color: var(--color-warningText); }
+
+/* Sits under the run buttons rather than beside them: the row is already full,
+   and this must not be the thing that gets pushed off the end. */
+#dirty-note { display: block; margin-top: 12px; width: fit-content; }
+.badge--muted   { background: var(--color-tableRowAlternate); color: var(--color-pageTextLight); }
+.badge--error   { background: var(--color-errorBackground); color: var(--color-errorText); }
+.badge--good    { background: var(--color-noticeBackground); color: var(--color-noticeText); }
+
+/* ------------------------------------------------------------------- forms */
+
+button {
+  font: inherit;
+  cursor: pointer;
+  border-radius: 6px;
+  border: 1px solid var(--color-buttonNormalBorder);
+  background: var(--color-buttonNormalBackground);
+  color: var(--color-buttonNormalText);
+  padding: 6px 12px;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+button:hover:not(:disabled) { background: var(--color-buttonNormalBackgroundHover); }
+button:disabled { opacity: 0.5; cursor: default; }
+
+/* A filled button at half opacity still reads as "press me". The sweep buttons
+   are disabled until a new trip is saved, so they have to look it. */
+button.primary:disabled {
+  background: transparent;
+  color: var(--color-pageTextLight);
+  border: 1px solid var(--color-tableBorder);
+}
+
+button.primary {
+  background: var(--color-buttonPrimaryBackground);
+  border-color: var(--color-buttonPrimaryBackground);
+  color: var(--color-buttonPrimaryText);
+}
+
+button.primary:hover:not(:disabled) {
+  background: var(--color-buttonPrimaryBackgroundHover);
+  border-color: var(--color-buttonPrimaryBackgroundHover);
+}
+
+input, select, textarea {
+  font: inherit;
+  color: var(--color-formInputText);
+  background: var(--color-formInputBackground);
+  border: 1px solid var(--color-formInputBorder);
+  border-radius: 6px;
+  padding: 6px 9px;
+  min-width: 0;
+}
+
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--color-formInputBorderSelected);
+  box-shadow: 0 0 0 2px var(--color-accentSubtle);
+}
+
+label.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-formLabelText);
+}
+
+label.field > input,
+label.field > select { font-weight: 400; color: var(--color-formInputText); }
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+/* ------------------------------------------------------------------- cards */
+
+.stat-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.stat {
+  background: var(--color-panelBackground);
+  border: 1px solid var(--color-tableBorder);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+
+.stat__label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-pageTextLight);
+  margin-bottom: 6px;
+}
+
+.stat__value { font-size: 22px; font-weight: 600; }
+.stat__sub { margin-top: 4px; font-size: 12px; color: var(--color-pageTextLight); }
+
+.stat.is-headline {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 1px var(--color-accent);
+}
+
+.stat.is-headline .stat__value { font-size: 26px; }
+
+/* ------------------------------------------------------------------ charts */
+
+.chart { width: 100%; overflow-x: auto; }
+.chart svg { display: block; max-width: 100%; height: auto; }
+
+.chart__tooltip {
+  position: absolute;
+  pointer-events: none;
+  background: var(--color-panelBackground);
+  border: 1px solid var(--color-tableBorderStrong);
+  border-radius: 6px;
+  padding: 6px 9px;
+  font-size: 12px;
+  box-shadow: 0 4px 14px var(--color-shadow);
+  white-space: nowrap;
+  z-index: 5;
+}
+
+.chart-wrap { position: relative; }
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--color-pageTextSubdued, var(--color-chartAxis));
+}
+.chart-legend__item { display: inline-flex; align-items: center; gap: 6px; }
+.chart-legend__swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+/* ------------------------------------------------------------ status strip */
+
+/* The strip and the cloud-results bar under it stick as one block, so a run that
+   landed while you were reading a table is announced where you are looking
+   rather than a screenful above it. Sticky lives on the wrapper: two sticky
+   siblings both pinned to `top: 0` would sit on top of each other. */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+/* Mirrors Finance-planner's sidebar save-state readout: the thing you glance at
+   to know whether work is happening. */
+.status-strip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 32px;
+  background: var(--color-panelBackground);
+  border-bottom: 1px solid var(--color-tableBorder);
+  font-size: 13px;
+}
+
+.status-strip__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-pageTextSubdued);
+  flex: none;
+}
+
+.status-strip.is-running .status-strip__dot { background: var(--color-accent); }
+.status-strip.is-error .status-strip__dot { background: var(--color-errorText); }
+
+/* Waiting out a refusal. Its own colour rather than the running green, because
+   the whole point is that this is not the same as progress - it looked exactly
+   like progress for thirteen minutes. */
+.status-strip.is-waiting {
+  background: var(--color-warningBackground);
+  color: var(--color-warningText);
+}
+
+.status-strip.is-waiting .status-strip__dot { background: var(--color-warningText); }
+
+/* The control for the thing the strip is describing, so it reads as part of it
+   rather than as another small grey button. It was `.small` and unstyled, and
+   went unfound: a run could be watched to its end for want of a visible way to
+   end it. */
+.status-strip__stop {
+  padding: 4px 14px;
+  font-weight: 600;
+  color: var(--color-errorText);
+  border: 1px solid var(--color-errorText);
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.status-strip__stop:hover:not(:disabled) {
+  background: var(--color-errorText);
+  color: var(--color-panelBackground);
+}
+
+.status-strip__stop:disabled { opacity: 0.6; cursor: default; }
+
+/* -------------------------------------------------------------- disclosure */
+
+.disclosure > summary {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.disclosure > summary::-webkit-details-marker { display: none; }
+
+.disclosure > summary::before {
+  content: '›';
+  color: var(--color-pageTextLight);
+  font-size: 16px;
+  line-height: 1;
+  transition: transform 0.12s ease;
+}
+
+.disclosure[open] > summary::before { transform: rotate(90deg); }
+
+/* ------------------------------------------------------------------ trends */
+
+.trend { font-size: 12px; font-weight: 600; }
+.trend--down { color: var(--color-numberPositive); }  /* cheaper is good */
+.trend--up { color: var(--color-numberNegative); }
+
+@media (max-width: 720px) {
+  .main { padding: 20px 16px 48px; }
+  .status-strip { padding: 8px 16px; }
+  .cloud-sync--bar { padding: 8px 16px; }
+}
+
+/* ------------------------------------------------------------------ chips --
+   Airport selection is a chip list with a typeahead, not a checkbox grid. The
+   grid worked when there were nine hardcoded European airports; there are now
+   ~4,000 with scheduled service, so the picker has to search rather than list.
+*/
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px 4px 10px;
+  border: 1px solid var(--color-tableBorder);
+  border-radius: 999px;
+  background: var(--color-tableRowAlternate);
+  font-size: 13px;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.chip__code { font-weight: 600; }
+.chip__city { color: var(--color-pageTextLight); }
+
+.chip--dead {
+  border-color: var(--color-warningText);
+}
+
+/* A chip that is itself the button that removes what it names. Used where a
+   setting has no field of its own and would otherwise be removable only by a
+   control that clears three other things with it. */
+.chip--clearable { cursor: pointer; }
+.chip--clearable:hover { border-color: var(--color-errorText); }
+.chip--clearable:hover .chip__remove { color: var(--color-errorText); }
+
+.chip__remove {
+  border: 0;
+  background: transparent;
+  color: var(--color-pageTextLight);
+  cursor: pointer;
+  padding: 0 2px;
+  font-size: 15px;
+  line-height: 1;
+}
+.chip__remove:hover { color: var(--color-errorText); }
+
+/* ------------------------------------------------------------- typeahead -- */
+
+.typeahead { position: relative; display: inline-block; }
+
+.typeahead input {
+  min-width: 190px;
+  padding: 5px 9px;
+  border: 1px dashed var(--color-tableBorder);
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+}
+
+.typeahead__menu {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 280px;
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 4px;
+  border: 1px solid var(--color-tableBorder);
+  border-radius: 8px;
+  background: var(--color-panelBackground);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 18%);
+}
+.typeahead__menu[hidden] { display: none; }
+
+.typeahead__item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.typeahead__item:hover,
+.typeahead__item.is-active { background: var(--color-tableRowAlternate); }
+.typeahead__item .muted { margin-left: 6px; }
+
+/* "No airport matches X", "20 of 83 in Japan", "Search failed - ...". A query
+   that finds nothing used to close the menu, which looked identical to a query
+   that had not run yet. */
+.typeahead__note {
+  padding: 6px 8px;
+  font-size: 12px;
+}
+.typeahead__note.is-error { color: var(--color-errorText); }
+
+/* Text left in the box adds nothing but looks like a chip about to appear. */
+.typeahead input.is-unresolved {
+  border-style: solid;
+  border-color: var(--color-errorText);
+}
+
+/* Airports already in use, offered as one-click adds. */
+.chips--suggest {
+  flex-basis: 100%;
+  margin-top: 2px;
+  gap: 4px;
+}
+
+.chip--add {
+  padding: 3px 9px;
+  border-style: dashed;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+}
+.chip--add:hover { border-style: solid; border-color: var(--color-accent, currentColor); }
+
+/* --------------------------------------------------------- trip picker -- */
+
+.trip-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.field--wide { grid-column: 1 / -1; }
+
+/* ------------------------------------------------------------------ stops -- */
+
+.stop {
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid var(--color-tableBorder);
+  border-radius: 10px;
+}
+
+.stop__head {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.stop__index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--color-tableRowAlternate);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.stop__label {
+  flex: 1;
+  padding: 4px 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+}
+.stop__label:hover, .stop__label:focus { border-color: var(--color-tableBorder); }
+
+.stop__overland { margin-top: 10px; }
+.stop__overland input:disabled + span { opacity: 0.5; }
+
+/* The two pins that spend a probe's answer. Indented under the tick they belong
+   to, so they read as a narrowing of it rather than as two more trip settings. */
+.stop__pins {
+  margin: 8px 0 2px 22px;
+  gap: 10px;
+}
+.stop__pins select { font-size: 12px; }
+
+.stop__stay { display: flex; gap: 6px; align-items: center; font-size: 13px; }
+.stop__stay input { width: 62px; }
+
+.check { display: inline-flex; gap: 6px; align-items: center; }
+
+/* ------------------------------------------------------------ source cards
+   One card per source, each carrying its own state badge and its own repair
+   box. Bordered rather than plain blocks because three sources stacked in one
+   panel need a visible edge to read as three answers rather than one form. */
+
+.source-list {
+  display: grid;
+  gap: 14px;
+}
+
+.source-card {
+  border: 1px solid var(--color-tableBorder);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+
+.source-card__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.source-card__header h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+/* Set off from the card so an open repair box reads as a drawer rather than as
+   more of the card - it is only ever open when something is wrong. */
+.source-card__repair {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-tableBorder);
+}
+
+.source-card__repair[hidden] {
+  display: none;
+}
+
+/* ------------------------------------------------- results: filter row --
+
+   Sits between the headline cards and the table, and belongs to the table
+   rather than to the panel: boxed and set slightly back so it reads as a
+   control over what is below it, not as another figure alongside what is
+   above it. Aligned to the bottom because the two selects carry labels and
+   the tick does not, and without it the checkbox floats level with their
+   captions instead of with the inputs it sits beside. */
+
+.results-filters {
+  align-items: flex-end;
+  gap: 12px;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-tableBorder);
+  border-radius: 10px;
+  background: var(--color-pageBackground);
+}
+
+.results-filters label.field { min-width: 128px; }
+
+/* The checkbox is not a labelled field, so it needs the same optical baseline
+   the selects get from their captions. */
+.results-filters .check { padding-bottom: 7px; }
+
+#filter-count { white-space: nowrap; }
+
+
+/* ------------------------------------------------------------- night sweep */
+
+/* The pause switch, above the schedule it governs. Boxed rather than loose in
+   the panel because it is the one control here that changes what GitHub does,
+   as against the readouts around it that only report. */
+.schedule-switch {
+  margin: 10px 0 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-tableBorder);
+  border-radius: 6px;
+}
+.schedule-switch__head {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.schedule-switch__head button { white-space: nowrap; }
+
+/* One line per trip, so "which of these runs tonight" is a column to run an eye
+   down rather than a paragraph to parse. Both kinds are listed: a trip left out
+   and hidden is how two trips came to sit unswept for a fortnight while their
+   owner watched for nightly results. */
+.night-list { display: grid; gap: 6px; margin-top: 8px; }
+
+.night-list__row { display: flex; gap: 10px; align-items: baseline; }
+.night-list__name { flex: 1; min-width: 0; }
+.night-list__cost { color: var(--color-pageTextLight); white-space: nowrap; }
+
+/* Dimmed rather than dropped, and it still carries its cost: the question a
+   left-out trip raises is "what would it cost to put it back in". */
+.night-list__row.is-out .night-list__name { text-decoration: line-through; }
+
+/* The Cloud tab reuses `night-list` for its three lists. Its rows carry a
+   control, which the night sweep's do not. */
+.night-list__drop { padding: 2px 10px; font-size: 0.85em; }
+.night-list__row.is-out { opacity: 0.6; }
+
+#night-cloud { display: block; margin-top: 12px; max-width: 80ch; }
+
+/* ------------------------------------------------------------- narrowing --
+
+   The three constraints, and the stacked per-leg charts under them. */
+
+.narrow-grid { display: flex; gap: 24px; flex-wrap: wrap; }
+.narrow-grid > label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.narrow-grid input[type="number"] { width: 70px; }
+
+/* A sentence, not a chip - `.badge` is `nowrap` and this one has to wrap.
+   Tightening a stay is the only edit in this step that cannot be undone by
+   reading the same legs another way, so it is said at length. */
+#narrow-stays-alert {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  max-width: 68ch;
+  background: var(--color-warningBackground);
+  color: var(--color-warningText);
+}
+
+/* Every leg scrolls in one container rather than three.
+
+   Three scrollers would each start at their own offset the moment one was
+   dragged, and two charts showing different halves of the same axis while
+   claiming a shared one is worse than not sharing it at all. */
+#leg-charts { overflow-x: auto; }
+#leg-charts svg { display: block; }
+
+.leg-chart + .leg-chart { margin-top: 2px; }
+
+/* Indented by PAD.left from chart.js, so a leg's name sits over its own plot
+   area rather than over the price axis beside it. */
+.leg-chart__header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding-left: 62px;
+  flex-wrap: wrap;
+}
+.leg-chart__route { padding-left: 62px; }
+.leg-chart__route > .small { color: var(--color-pageTextLight); }
+
+/* Sticky, because the total is what the dragging is for. Three stacked charts
+   are taller than a screen, and a figure you have to stop dragging and scroll
+   up to read is a figure you will stop reading. */
+.cursor-readout:not(:empty) {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  display: flex;
+  align-items: baseline;
+  gap: 18px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  margin-bottom: 10px;
+  background: var(--color-panelBackground);
+  border: 1px solid var(--color-tableBorderStrong);
+  border-radius: 8px;
+  box-shadow: 0 2px 10px var(--color-shadow);
+}
+.cursor-readout__total { font-size: 22px; font-weight: 700; }
+.cursor-readout__total .small { font-weight: 400; }
+.cursor-readout__split { font-size: 14px; color: var(--color-pageTextLight); }
+.cursor-readout__badges { display: flex; gap: 6px; flex-wrap: wrap; }
+/* One row per leg, and the columns line up down the trip: the three dates read
+   as a column, the three prices as a column that adds to the total above them.
+   A flex row of wrapping spans could not do that, and this panel is now where
+   the trip is booked from - the leg rows carry the links. */
+.cursor-readout__legs {
+  width: 100%;
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr) max-content max-content max-content;
+  align-items: baseline;
+  gap: 4px 14px;
+  font-size: 12px;
+}
+
+.cursor-readout__leg {
+  display: contents;
+}
+
+.cursor-readout__when { white-space: nowrap; font-weight: 600; }
+.cursor-readout__price { white-space: nowrap; text-align: right; }
+
+/* The row's own controls sit tight to the price rather than out at the panel
+   edge, so a three-leg trip reads as three lines and not as a table. */
+.cursor-readout__leg > a,
+.cursor-readout__leg > button { justify-self: start; }
+.cursor-readout__leg > button { padding: 2px 8px; font-size: 12px; }
+
+/* Narrow enough that five columns would each be a word wide. */
+@media (max-width: 640px) {
+  .cursor-readout__legs { grid-template-columns: max-content minmax(0, 1fr); }
+  .cursor-readout__leg > a,
+  .cursor-readout__leg > button { grid-column: 2; }
+}
+
+/* The itinerary the markers are pointing at, marked in the ranking below them.
+   Without it "show it in the table" scrolls you to a table of fifty rows and
+   leaves you to find which one it meant. */
+tr.is-cursor > td {
+  background: var(--color-warningBackground);
+}
+tr.is-cursor > td:first-child { font-weight: 600; }
+
+/* The gear sits at the far end, after a spacer, because setup is not a fourth
+   step of the work — it is the drawer the work is configured from. */
+.tabs .spacer { flex: 1; }
+.tabs__gear { font-size: 16px; line-height: 1; }
+
+/* One rank of a tier list: a label, a Remove, and the airports at that rank.
+   Used by both rankings - the global one and a trip's override of it - because
+   they are the same kind of object and were only ever drawn differently. */
+.tier + .tier { margin-top: 12px; }
+
+/* The rank number in front of a preference's name. */
+.rank {
+  display: inline-block;
+  min-width: 18px;
+  margin-right: 6px;
+  color: var(--color-pageTextLight);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+/* The row under a preference offering a cheaper set of dates inside its slack.
+   Indented and unruled, so it reads as a note on the row above rather than as
+   another preference. */
+.pref-offer td {
+  border-top: none;
+  padding-top: 0;
+  padding-left: 26px;
+  font-size: 12px;
+}
+
+.pref-offer button { margin-left: 6px; }
+
+.pref-actions { white-space: nowrap; }
+.pref-actions > * { margin-left: 4px; }
+
+/* ------------------------------------------------------------- sub-tabs --
+
+   A second nav row, under the step tabs and only on the step that has one.
+   Lighter than `.tabs` on purpose: a pill row rather than an underlined bar,
+   so two rows of navigation never read as the same level. The step you are on
+   is said once, by the row above; this one says which of that step's answers
+   you are looking at. */
+
+.subtabs {
+  display: flex;
+  gap: 4px;
+  margin: -8px 0 18px;
+  padding: 3px;
+  border: 1px solid var(--color-tableBorder);
+  border-radius: 8px;
+  background: var(--color-tableRowAlternate);
+  width: fit-content;
+  max-width: 100%;
+  flex-wrap: wrap;
+}
+
+.subtabs button {
+  border: none;
+  background: none;
+  border-radius: 6px;
+  color: var(--color-pageTextLight);
+  padding: 5px 12px;
+  font-weight: 500;
+}
+
+.subtabs button:hover:not(:disabled) {
+  background: var(--color-pageBackground);
+  color: var(--color-pageText);
+}
+
+.subtabs button.is-active {
+  background: var(--color-panelBackground);
+  color: var(--color-accentText);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 8%);
+}
+
+/* ---------------------------------------------------------- the run row --
+
+   One button per kind of run, each carrying its own cost. This replaced a
+   depth select and two destination buttons: three controls for what is one
+   decision - how much of the window to price - plus a choice between a machine
+   that cannot finish the job and one that can.
+
+   Sized so the cost line fits under the name without wrapping at the widths a
+   trip name can push this row to. `align-items: stretch` keeps the schedule
+   button the same height as the run buttons when one of them wraps. */
+
+.runs {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Between the runs and the thing that is not a run. It was a `.spacer`, which
+   flexes: on a wide window the schedule button ended up alone at the far right
+   of an otherwise empty row, and on the narrowing step - where there is one run
+   button rather than three - the gap was most of the panel. A measured
+   separation says "different kind of button" at every width. */
+.runs__gap {
+  width: 1px;
+  align-self: stretch;
+  margin: 4px 14px;
+  background: var(--color-tableBorder);
+}
+
+.run-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 4px;
+  min-width: 150px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  text-align: left;
+}
+
+.run-btn__name { font-size: 15px; font-weight: 600; line-height: 1.2; }
+
+/* Never collapses with the explanations: it is the number the button is being
+   pressed on, and a run whose cost is hidden is the run that gets started by
+   accident. */
+.run-btn__cost {
+  font-size: 12px;
+  line-height: 1.3;
+  opacity: 0.85;
+  font-variant-numeric: tabular-nums;
+}
+
+.run-btn--probe {
+  background: var(--color-runProbeBackground);
+  border-color: var(--color-runProbeBorder);
+  color: var(--color-runProbeText);
+}
+
+.run-btn--quick {
+  background: var(--color-runQuickBackground);
+  border-color: var(--color-runQuickBackground);
+  color: var(--color-runText);
+}
+
+.run-btn--deep {
+  background: var(--color-runDeepBackground);
+  border-color: var(--color-runDeepBackground);
+  color: var(--color-runText);
+}
+
+/* Not a run at all, which is why it is the one that is not purple: it opens
+   what happens when nobody presses anything. */
+.run-btn--schedule {
+  background: var(--color-runScheduleBackground);
+  border-color: var(--color-runScheduleBorder);
+  color: var(--color-runText);
+}
+
+.run-btn:hover:not(:disabled) { filter: brightness(1.08); }
+.run-btn:disabled { opacity: 0.5; filter: none; }
+
+/* ------------------------------------------------------- the trip strip --
+
+   The route, read-only, at the top of the narrowing step. That step opened on
+   three date fields and never said which trip they belonged to, so the thing
+   being narrowed was on another tab. Chips rather than a sentence, because it
+   is the same vocabulary the route editor uses one step back. */
+
+.trip-strip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+  padding: 10px 16px;
+  border: 1px solid var(--color-tableBorder);
+  border-radius: 10px;
+  background: var(--color-tableRowAlternate);
+}
+
+.trip-strip__chain {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-weight: 600;
+}
+
+.trip-strip__arrow { color: var(--color-pageTextSubdued); }
+
+.trip-strip__stop {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border: 1px solid var(--color-tableBorder);
+  border-radius: 999px;
+  background: var(--color-panelBackground);
+  white-space: nowrap;
+}
+
+.trip-strip__nights { font-weight: 400; color: var(--color-pageTextLight); font-size: 12px; }
+
+/* ------------------------------------------------------------- the sheet --
+
+   A small modal for one subject. Used by the schedule editor, which is wanted
+   from three places and must exist once: three copies of `#enabled` is a
+   checkbox that reads whichever the DOM found first and saves the other.
+
+   A native `<dialog>` rather than a positioned div, for the things a dialog
+   already does correctly and a div has to be taught: focus is trapped in it,
+   Escape closes it, the rest of the page goes inert, and it is on the top
+   layer so no stacking context can bury it. */
+
+.sheet {
+  border: 1px solid var(--color-tableBorder);
+  border-radius: 12px;
+  background: var(--color-panelBackground);
+  color: var(--color-pageText);
+  padding: 0;
+  width: min(560px, calc(100vw - 32px));
+  max-height: calc(100vh - 64px);
+  box-shadow: 0 12px 40px rgb(0 0 0 / 22%);
+}
+
+.sheet::backdrop { background: rgb(0 0 0 / 38%); }
+
+.sheet__form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 18px 20px;
+  max-height: calc(100vh - 64px);
+  overflow-y: auto;
+}
+
+.sheet__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sheet__head h2 { margin: 0; }
+
+/* One scheduled run per block, fenced, because the question the dialog answers
+   is "which of these two happens" and two ticks in one column read as a list of
+   options for one run. */
+.sheet__block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--color-tableBorder);
+  border-radius: 8px;
+  background: var(--color-tableRowAlternate);
+}
+
+.sheet__block .explain { margin: 0; }
+
+.sheet__foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* The sheet is not a panel, so the panel scale does not reach it; its own gap
+   handles the rhythm and the prose must not add to it. */
+.sheet .explain,
+.sheet .answer { margin: 0; }
+
+/* The probe's own airport list, under the pool it belongs to. Set apart from
+   the verdict table above it by a rule rather than a box: it is an edit to the
+   same pool, not a second subject. */
+.probe-list {
+  padding-top: 10px;
+  border-top: 1px dashed var(--color-tableBorder);
+  align-items: baseline;
+}
+
+/* Prose inside a source card sits tighter than prose in a panel: the card is
+   already a small box and the panel scale would push its parts apart. */
+.source-card .explain,
+.source-card .answer { margin: 0 0 10px; }
+
+/* The verdict tables' last column: what this row's state is, then what can be
+   done about it. Wrapped, because an outside row carries a label and two
+   buttons and a table cell is not wide.
+
+   Scoped to the two panels that judge airports, not to `.data` at large: every
+   ranking and leg table in the app shares that class, and their last cells are
+   prices. */
+#explore-verdicts .data td:last-child,
+#explore-report .data td:last-child {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: baseline;
+}
